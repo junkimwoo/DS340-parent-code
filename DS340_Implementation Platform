@@ -1,0 +1,254 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "anaconda-cloud": {},
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3",
+      "language": "python"
+    },
+    "language_info": {
+      "mimetype": "text/x-python",
+      "nbconvert_exporter": "python",
+      "name": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.5.4",
+      "file_extension": ".py",
+      "codemirror_mode": {
+        "version": 3,
+        "name": "ipython"
+      }
+    },
+    "colab": {
+      "provenance": [],
+      "collapsed_sections": [
+        "w-dKDKz4OK5K"
+      ],
+      "include_colab_link": true
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/junkimwoo/DS340-parent-code/blob/main/DS340_Implementation%20Platform\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import pandas as pd\n",
+        "\n",
+        "# Load the datasets\n",
+        "df_21_22 = pd.read_excel(\"Premier league 21_22.xlsx\")\n",
+        "df_22_23 = pd.read_excel(\"Premier league 22_23.xlsx\")\n",
+        "df_23_24 = pd.read_excel(\"Premier league 23_24.xlsx\")\n",
+        "#Load the libraries\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.preprocessing import StandardScaler\n",
+        "from sklearn.ensemble import RandomForestClassifier\n",
+        "from sklearn.metrics import classification_report, accuracy_score\n",
+        "from sklearn.ensemble import RandomForestRegressor\n",
+        "from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score\n"
+      ],
+      "metadata": {
+        "collapsed": true,
+        "id": "JcUKQxuQ2grE"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# 1: Combine Datasets\n",
+        "df = pd.concat([df_21_22, df_22_23, df_23_24], ignore_index=True)\n",
+        "\n",
+        "# 2: Selecting Columns of Interest\n",
+        "# Retaining meaningful columns, particularly goals, odds, and Asian handicap data\n",
+        "selected_columns = [\n",
+        "    'FTHG', 'FTAG', 'HTHG', 'HTAG',             # Goals scored (full-time and halftime)\n",
+        "    'B365H', 'B365D', 'B365A',                  # Bet365 odds for home win, draw, away win\n",
+        "    'IWH', 'IWD', 'IWA',                        # Alternative odds for win, draw, and loss\n",
+        "    'AHCh',                                     # Asian Handicap for home win\n",
+        "    'B365CAHH', 'B365CAHA',                     # Asian Handicap betting odds from Bet365\n",
+        "    'P>2.5', 'P<2.5',                           # Probability of over/under 2.5 goals\n",
+        "    'FTR'                                       # Target variable: Full-Time Result\n",
+        "]\n",
+        "\n",
+        "# Keeping only these selected columns\n",
+        "df = df[selected_columns]\n",
+        "\n",
+        "# 3: Handling Missing Values\n",
+        "\n",
+        "# Dropping columns if missing values exceed a certain threshold (e.g., 30%)\n",
+        "missing_value_threshold = 0.3\n",
+        "for column in df.columns:\n",
+        "    if df[column].isnull().mean() > missing_value_threshold:\n",
+        "        df.drop(column, axis=1, inplace=True)\n",
+        "\n",
+        "# Impute remaining missing values with the column mean for numerical columns\n",
+        "df.fillna(df.mean(numeric_only=True), inplace=True)\n",
+        "\n",
+        "# Step 4: Verify Data Cleaning\n",
+        "# Check for any remaining missing values\n",
+        "print(\"Missing Values After Cleaning:\\n\", df.isnull().sum())\n",
+        "\n",
+        "# Display the cleaned dataset\n",
+        "print(\"\\nSample of Cleaned Data:\\n\", df.head())"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "MRiXNb7k5KfO",
+        "outputId": "2d8889ac-54ca-4df7-f0a7-cc4b67a73f96"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Missing Values After Cleaning:\n",
+            " FTHG        0\n",
+            "FTAG        0\n",
+            "HTHG        0\n",
+            "HTAG        0\n",
+            "B365H       0\n",
+            "B365D       0\n",
+            "B365A       0\n",
+            "IWH         0\n",
+            "IWD         0\n",
+            "IWA         0\n",
+            "AHCh        0\n",
+            "B365CAHH    0\n",
+            "B365CAHA    0\n",
+            "P>2.5       0\n",
+            "P<2.5       0\n",
+            "FTR         0\n",
+            "dtype: int64\n",
+            "\n",
+            "Sample of Cleaned Data:\n",
+            "    FTHG  FTAG  HTHG  HTAG  B365H  B365D  B365A   IWH   IWD    IWA  AHCh  \\\n",
+            "0     2     0     1     0   4.00   3.40   1.95  3.80  3.40   2.05  0.50   \n",
+            "1     5     1     1     0   1.53   4.50   5.75  1.55  4.40   5.75 -1.00   \n",
+            "2     1     2     1     0   3.10   3.10   2.45  3.15  3.05   2.45  0.25   \n",
+            "3     3     0     2     0   1.25   5.75  13.00  1.25  6.00  13.00 -1.50   \n",
+            "4     3     1     0     1   1.90   3.50   4.00  1.95  3.45   3.95 -0.50   \n",
+            "\n",
+            "   B365CAHH  B365CAHA  P>2.5  P<2.5 FTR  \n",
+            "0      1.75      2.05   2.22   1.73   H  \n",
+            "1      2.05      1.75   1.67   2.32   H  \n",
+            "2      1.79      2.15   2.56   1.56   A  \n",
+            "3      2.05      1.75   1.80   2.09   H  \n",
+            "4      2.05      1.88   2.14   1.78   H  \n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Selecting relevant features for predicting total goals\n",
+        "selected_features = [\n",
+        "    'FTHG', 'FTAG', 'HTHG', 'HTAG',  # Goals scored at full-time and halftime\n",
+        "    'B365H', 'B365D', 'B365A',       # Bet365 odds\n",
+        "    'AHCh',                          # Asian Handicap\n",
+        "    'B365CAHH', 'B365CAHA',          # Bet365 Asian Handicap odds\n",
+        "    'P>2.5', 'P<2.5'                 # Probabilities for over/under 2.5 goals\n",
+        "]\n",
+        "\n",
+        "# Target variable: Total goals scored in a match\n",
+        "df['TotalGoals'] = df['FTHG'] + df['FTAG']  # Calculating total goals as target\n",
+        "target = df['TotalGoals']\n",
+        "features = df[selected_features]\n",
+        "\n",
+        "# Handling missing values by filling with column mean\n",
+        "features.fillna(features.mean(), inplace=True)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "E3MXW-007qHf",
+        "outputId": "4899af9f-1f48-42ad-96b1-2e3d53554a85"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "<ipython-input-27-efc321646500>:16: SettingWithCopyWarning: \n",
+            "A value is trying to be set on a copy of a slice from a DataFrame\n",
+            "\n",
+            "See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy\n",
+            "  features.fillna(features.mean(), inplace=True)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Split the dataset into training and testing sets\n",
+        "X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)\n",
+        "\n",
+        "# Scaling the features\n",
+        "scaler = StandardScaler()\n",
+        "X_train = scaler.fit_transform(X_train)\n",
+        "X_test = scaler.transform(X_test)"
+      ],
+      "metadata": {
+        "id": "U-D-V1Rd7_mC"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Model Selection - Random Forest Regressor\n",
+        "model = RandomForestRegressor(n_estimators=100, random_state=42)\n",
+        "model.fit(X_train, y_train)\n",
+        "\n",
+        "# Predictions\n",
+        "y_pred = model.predict(X_test)\n",
+        "\n",
+        "# Model evaluation metrics\n",
+        "mae = mean_absolute_error(y_test, y_pred)\n",
+        "mse = mean_squared_error(y_test, y_pred)\n",
+        "r2 = r2_score(y_test, y_pred)\n",
+        "\n",
+        "print(\"Mean Absolute Error:\", mae)\n",
+        "print(\"Mean Squared Error:\", mse)\n",
+        "print(\"R^2 Score:\", r2)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "bpx10iCh8C3c",
+        "outputId": "62fe8fe6-2ed7-4d28-e83d-5015de16bc88"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Mean Absolute Error: 0.017850877192982437\n",
+            "Mean Squared Error: 0.007631140350877191\n",
+            "R^2 Score: 0.9971342705233045\n"
+          ]
+        }
+      ]
+    }
+  ]
+}
